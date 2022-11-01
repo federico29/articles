@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from datetime import datetime
 from uuid import uuid4
 
@@ -7,6 +8,9 @@ import boto3
 
 dynamodb_client = boto3.client("dynamodb")
 s3_client = boto3.client("s3")
+
+articles_table_name = os.getenv("ARTICLES_TABLE_NAME")
+articles_bucket_name = os.getenv("ARTICLES_BUCKET_NAME")
 
 
 def lambda_handler(event, context):
@@ -30,7 +34,7 @@ def lambda_handler(event, context):
 def get_article(event):
     article_id = event["queryStringParameters"]["articleId"]
     response = dynamodb_client.get_item(
-        TableName="articles",
+        TableName=articles_table_name,
         Key={
             "id": {"S": article_id}
         }
@@ -51,7 +55,7 @@ def upload_article(event):
 
 def get_random_articles(event):
     response = dynamodb_client.scan(
-        TableName="articles",
+        TableName=articles_table_name,
         Limit=20,
         Select="ALL_ATTRIBUTES",
     )
@@ -61,7 +65,7 @@ def get_random_articles(event):
 
 def save_article_record(article, article_id, creation_date):
     dynamodb_client.put_item(
-        TableName="articles",
+        TableName=articles_table_name,
         Item={
             "id": {
                 "S": article_id
@@ -86,7 +90,7 @@ def save_article_file(base64_file, article_id):
     base64_bytes = base64_file.encode("ascii")
     file_bytes = base64.b64decode(base64_bytes)
     file = file_bytes.decode("ascii")
-    s3_client.put_object(Body=file, Bucket="ronainc-articles", Key=f"{article_id}.html")
+    s3_client.put_object(Body=file, Bucket=articles_bucket_name, Key=f"{article_id}.html")
 
 
 def parse_dynamodb_article(dynamodb_article):
@@ -95,17 +99,10 @@ def parse_dynamodb_article(dynamodb_article):
         "category": dynamodb_article.get("category").get("S"),
         "abstract": dynamodb_article.get("abstract").get("S"),
         "title": dynamodb_article.get("title").get("S"),
-        "creationDate": dynamodb_article.get("creation_date").get("S"),
+        "creationDate": dynamodb_article.get("creation_date").get("S")
     }
 
     return article
-
-
-def parse_dynamodb_attribute(attribute, attribute_name, attribute_type):
-    if attribute:
-        attribute = attribute.get(attribute_name).get(attribute_type)
-
-    return attribute
 
 
 def response(status_code, body):
