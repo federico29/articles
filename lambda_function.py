@@ -21,6 +21,9 @@ def lambda_handler(event, context):
         },
         "/article/random": {
             "GET": get_random_articles
+        },
+        "/article/file": {
+            "GET": get_article_file
         }
     }
     try:
@@ -63,6 +66,14 @@ def get_random_articles(event):
     return [parse_dynamodb_article(article) for article in response["Items"]]
 
 
+def get_article_file(event):
+    article_id = event["queryStringParameters"]["id"]
+    response = s3_client.get_object(Bucket=articles_bucket_name, Key=f"{article_id}.json")
+    article = response["Body"].read().decode("utf-8")
+
+    return json.loads(article)
+
+
 def save_article_record(article, article_id, creation_date):
     dynamodb_client.put_item(
         TableName=articles_table_name,
@@ -90,7 +101,7 @@ def save_article_file(base64_file, article_id):
     base64_bytes = base64_file.encode("ascii")
     file_bytes = base64.b64decode(base64_bytes)
     file = file_bytes.decode("ascii")
-    s3_client.put_object(Body=file, Bucket=articles_bucket_name, Key=f"{article_id}.html")
+    s3_client.put_object(Body=file, Bucket=articles_bucket_name, Key=f"{article_id}.json")
 
 
 def parse_dynamodb_article(dynamodb_article):
